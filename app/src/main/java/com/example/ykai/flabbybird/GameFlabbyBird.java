@@ -9,6 +9,7 @@ import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.RectF;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceHolder.Callback;
 import android.view.SurfaceView;
@@ -50,17 +51,140 @@ public class GameFlabbyBird extends SurfaceView implements Callback,Runnable {
     private int mPipeWidth;
     private static final int PIPE_WIDTH=60;
     private List<Pipe> mPipes=new ArrayList<Pipe>();
+    private final int PIPE_DIS_BETWEEN_TWO=Util.dp2px(getContext(),300);
+    private int mTmpMoveDistance;
+    private List<Pipe> mNeedRemovePipe=new ArrayList<Pipe>();// the pepes need to be remove
+    private int mRemovePipe=0;
+
 
     //grade
     private final int []mNums=new int[]{R.drawable.n0,R.drawable.n1,R.drawable.n2,
             R.drawable.n3,R.drawable.n4,R.drawable.n5,
             R.drawable.n6,R.drawable.n7,R.drawable.n8,R.drawable.n9};
     private Bitmap[]mNumBitmap;
-    private int mGrade=100;
+    private int mGrade=0;
     private static final float RADIO_SINGLE_NUM_HEIGHT=1/15F;  //1/15 of the height of a number
     private int mSingleGradeWidth; //width of a number
     private int mSingleGradeHeight; //height of a number
     private RectF mSingleNumRectF;
+
+    //status of game
+    private enum GameStatus{
+        WAITTING,RUNNING,STOP;
+    }
+    private GameStatus mStatus=GameStatus.WAITTING;
+    private static final int TOUCH_UP_SIZE=-16;
+    private final int mBirdUpDis=Util.dp2px(getContext(),TOUCH_UP_SIZE);
+    private int mTmpBirdDis;
+    private final int mAutoDownSpeed=Util.dp2px(getContext(),2);
+
+    private void logic(){
+        switch (mStatus){
+            case RUNNING:
+                mGrade=0;
+                mFloor.setX(mFloor.getX()-mSpeed);
+/**
+ * 增加了一个变量mNeedRemovePipe，在遍历Pipes的时候，如果x左边已经小于 -mPipeWidth时候，说明看不到了，那么就防到mNeedRemovePipe中；
+ 最后统一移除mNeedRemovePipe。
+ */
+                mRemovePipe=0;
+                for(Pipe pipe:mPipes){
+                    if(pipe.getX()<-mPipeWidth)
+                    {
+                        mNeedRemovePipe.add(pipe);
+                        mRemovePipe++;
+                        continue;
+                    }
+                    pipe.setX(pipe.getX()-mSpeed);
+                }
+                mPipes.remove(mNeedRemovePipe);
+                mTmpMoveDistance+=mSpeed;
+                if(mTmpMoveDistance>=PIPE_DIS_BETWEEN_TWO){
+                    Pipe pipe=new Pipe(getContext(),getWidth(),getHeight(),mPipeTop,mPipeBottom);
+                    mPipes.add(pipe);
+                    mTmpMoveDistance=0;
+                }
+
+
+                mTmpBirdDis+=mAutoDownSpeed;
+                mBird.setY(mBird.getY()+mTmpBirdDis);
+
+                /**
+                 * the method of calculate grade
+                 * int the current Activity:  grade = the number of remove pipe + the number of pipe that in left of bird
+                 */
+               // mGrade+=mRemovePipe;
+                for(Pipe pipe:mPipes){
+                    if(pipe.getX()+mPipeWidth<mBird.getX())
+                    {
+                        mGrade++;
+                    }
+                }
+                checkGameOver();
+                break;
+            case STOP: // bird drop down
+                // if the bird in the air ,let it drop down first
+                if(mBird.getY()+mBird.getmHeight()<mFloor.getY())
+                {
+                    mTmpBirdDis+=mAutoDownSpeed;
+                    mBird.setY(mBird.getY()+mTmpBirdDis);
+                }else{
+                    mStatus=GameStatus.WAITTING;
+
+                    
+                }
+                break;
+            case WAITTING:
+                initPOS();
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void initPOS() {
+        mPipes.clear();
+        mNeedRemovePipe.clear();
+        mBird.setY(mHeight * 3/7);
+        mTmpBirdDis=0;
+     //   mGrade=0;
+    }
+
+    private void checkGameOver() {
+        // drop floor
+        if(mBird.getY()+mBird.getmHeight()>mFloor.getY()){
+            mStatus=GameStatus.STOP;
+        }
+        //strike pipe
+        for(Pipe wall:mPipes){
+            //bird have pass the pipe
+            if(wall.getX()+mPipeWidth<mBird.getX()){
+                continue;
+            }
+            if(wall.touchBird(mBird))
+            {
+                mStatus=GameStatus.STOP;
+                break;
+            }
+        }
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event){
+        int action=event.getAction();
+        if(action==MotionEvent.ACTION_DOWN){
+            switch (mStatus){
+                case WAITTING:
+                    mStatus=GameStatus.RUNNING;
+                    break;
+                case RUNNING:
+                    mTmpBirdDis=mBirdUpDis;
+                    break;
+            }
+        }
+        return true;
+    }
+
 
 
 
@@ -138,6 +262,7 @@ public class GameFlabbyBird extends SurfaceView implements Callback,Runnable {
     {
         while (isRunning){
             long start=System.currentTimeMillis();
+            logic();
             draw();
             long end=System.currentTimeMillis();
 
@@ -161,7 +286,7 @@ public class GameFlabbyBird extends SurfaceView implements Callback,Runnable {
                 drawPipes();
                 drawFloor();
                 drawGrades();
-                mFloor.setX(mFloor.getX()-mSpeed);
+//                mFloor.setX(mFloor.getX()-mSpeed);
 
             }
         }

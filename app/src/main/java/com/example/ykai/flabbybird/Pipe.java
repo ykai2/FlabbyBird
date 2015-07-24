@@ -65,4 +65,15 @@ public class Pipe {
     public void setX(int x) {
         this.x = x;
     }
+
+    public boolean touchBird(Bird mBird) {
+        if(
+                mBird.getX()+mBird.getmWidth()>x //there not operate the case that the bird pass the pipe
+                &&
+                ( mBird.getY()<height ||mBird.getY()+mBird.getmHeight()>height+margin)
+
+                )
+        {return true;}
+        return false;
+    }
 }

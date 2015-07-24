@@ -48,4 +48,8 @@ public class Bird {
     public int getmWidth() {
         return mWidth;
     }
+
+    public int getX() {
+        return x;
+    }
 }
